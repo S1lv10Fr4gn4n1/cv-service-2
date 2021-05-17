@@ -1,0 +1,24 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: cimg/openjdk:8.0.282
+    steps:
+      - checkout
+      - run:
+          name: Setup 
+          command: |
+            echo 'export TAG=0.1.${CIRCLE_BUILD_NUM}' >> $BASH_ENV
+            echo 'export IMAGE_NAME=cv-service-2' >> $BASH_ENV 
+      - run:
+          name: Run Tests
+          command: |
+            ./gradlew clean test
+      - setup_remote_docker:
+          docker_layer_caching: false
+      - run:
+          name: Build and push Docker image
+          command: |
+            ./gradlew clean bootBuildImage --imageName=$DOCKERHUB_USER/$IMAGE_NAME:$TAG
+            echo $DOCKER_PWD | docker login -u $DOCKER_LOGIN --password-stdin
+            docker push $DOCKERHUB_USER/$IMAGE_NAME:$TAG
