@@ -2,7 +2,6 @@ package com.cv.service2
 
 import com.cv.service2.message.MessageQueueSender
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
@@ -16,13 +15,10 @@ import java.util.*
     produces = [MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE],
     consumes = [MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE]
 )
-class Service2Controller {
+class Service2Controller(private val messageQueueSender: MessageQueueSender) {
 
     private val uuid = UUID.randomUUID().toString()
     private val logger = LoggerFactory.getLogger(Service2Controller::class.java)
-
-    @Autowired
-    private lateinit var mqSender: MessageQueueSender
 
     @GetMapping(
         value = ["/healthcheck"],
@@ -32,7 +28,7 @@ class Service2Controller {
     fun healthcheck(): String {
         val message = "healthcheck $uuid"
         logger.info(">> $message")
-        mqSender.sendMessage(message)
+        messageQueueSender.sendMessage(message)
         return message
     }
 
@@ -45,7 +41,7 @@ class Service2Controller {
     fun helloworld(): String {
         val message = "helloworld $uuid"
         logger.info(">> $message")
-        mqSender.sendMessage(message)
+        messageQueueSender.sendMessage(message)
         return message
     }
 }
