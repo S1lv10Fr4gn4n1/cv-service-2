@@ -24,6 +24,11 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
 
+    implementation("ai.djl.spring:djl-spring-boot-starter-pytorch-auto:0.11")
+    implementation("ai.djl.spring:djl-spring-boot-starter-autoconfigure:0.11")
+    implementation("ai.djl:basicdataset:0.8.0")
+    implementation("ai.djl:model-zoo:0.8.0")
+
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.amqp:spring-rabbit-test")
 }
