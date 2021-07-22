@@ -17,7 +17,7 @@ class ObjectDetectionServiceImpl(
         //  - upload image to S3
         //  - objectDetection.predict(imagePath)
         //  - upload output image to S3
-        //  - result
-        return ""
+        //  - result S3 url?
+        return objectDetection.predict(imagePath)
     }
 }
