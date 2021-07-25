@@ -8,7 +8,7 @@ import ai.djl.modality.cv.output.DetectedObjects
 import ai.djl.repository.zoo.Criteria
 import ai.djl.repository.zoo.ModelZoo
 import ai.djl.training.util.ProgressBar
-import org.slf4j.LoggerFactory
+import com.cv.service2.LoggerTime
 import org.springframework.stereotype.Component
 import java.nio.file.Files
 import java.nio.file.Paths
@@ -17,36 +17,35 @@ import java.nio.file.Paths
  * https://github.com/deepjavalibrary/djl/blob/master/examples/docs/object_detection.md
  */
 @Component
-class ObjectDetection {
-
-    private val logger = LoggerFactory.getLogger(ObjectDetection::class.java)
+class ObjectDetection() {
 
 //    private val criteria = getCriteria()
 //    private val predictor = ModelZoo.loadModel(criteria).newPredictor()
 
     private val predictor: Predictor<Image, DetectedObjects> by lazy {
-        logger.info(">>>> predictor start")
+        LoggerTime.start("predictor")
         val lazyValue = ModelZoo.loadModel(criteria).newPredictor()
-        logger.info(">>>> predictor end")
+        LoggerTime.stop("predictor")
         lazyValue
     }
     private val criteria: Criteria<Image, DetectedObjects> by lazy {
-        logger.info(">>>> criteria start")
+        LoggerTime.start("criteria")
         val lazyValue = buildCriteria()
-        logger.info(">>>> criteria end")
+        LoggerTime.stop("criteria")
         lazyValue
     }
 
-    fun predict(imagePath: String): String {
-        val inputImageFile = Paths.get(imagePath)
+    fun predict(inputImagePath: String, outputImagePath: String) {
+        val inputImageFile = Paths.get(inputImagePath)
         val image = ImageFactory.getInstance().fromFile(inputImageFile)
 
-        logger.info(">>>> prediction 1")
+        LoggerTime.start("prediction")
         val detection: DetectedObjects = predictor.predict(image)
-        logger.info(">>>> prediction 2")
+        LoggerTime.stop("prediction")
 
-        val outputImageFileName = "${inputImageFile.fileName}_$OUTPUT_FILE_SUFFIX"
-        return saveBoundingBoxImage(image, detection, outputImageFileName)
+        LoggerTime.start("saveBoundingBoxImage")
+        saveBoundingBoxImage(image, detection, outputImagePath)
+        LoggerTime.stop("saveBoundingBoxImage")
     }
 
     private fun buildCriteria(): Criteria<Image, DetectedObjects> {
@@ -58,22 +57,15 @@ class ObjectDetection {
             .build()
     }
 
-    private fun saveBoundingBoxImage(image: Image, detection: DetectedObjects, outputImageFileName: String): String {
-        val outputDir = Paths.get(OUTPUT_FOLDER)
-        Files.createDirectories(outputDir)
-
+    private fun saveBoundingBoxImage(image: Image, detection: DetectedObjects, outputImagePath: String) {
+        // TODO SFS improve it, file management should happen else where
         image.drawBoundingBoxes(detection)
-
-        val imagePath = outputDir.resolve(outputImageFileName)
-        image.save(Files.newOutputStream(imagePath), OUTPUT_IMAGE_TYPE)
-        return imagePath.toString()
+        image.save(Files.newOutputStream(Paths.get(outputImagePath)), OUTPUT_IMAGE_TYPE)
     }
 
     companion object {
 
         private const val OUTPUT_IMAGE_TYPE = "jpg"
-        private const val OUTPUT_FILE_SUFFIX = "output.$OUTPUT_IMAGE_TYPE"
-        private const val OUTPUT_FOLDER = "build/output"
 
         private const val CRITERIA_FILTER_KEY = "backbone"
         private const val CRITERIA_FILTER_VALUE = "resnet50"

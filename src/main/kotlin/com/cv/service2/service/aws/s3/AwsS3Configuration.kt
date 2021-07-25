@@ -9,12 +9,12 @@ import org.springframework.context.annotation.Configuration
 class AwsS3Configuration {
 
     @Bean
-    fun providesImageUploader(): AwsS3ImageUploader {
-        return AwsS3ImageUploader()
+    fun providesImageUploader(): ImageUploaderService {
+        return AwsS3ImageUploaderService()
     }
 
     @Bean
-    fun providesImageDownloader(): AwsS3ImageDownloader {
-        return AwsS3ImageDownloader()
+    fun providesImageDownloader(): ImageDownloaderService {
+        return AwsS3ImageDownloaderService()
     }
 }

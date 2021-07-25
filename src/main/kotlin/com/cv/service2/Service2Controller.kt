@@ -1,26 +1,25 @@
 package com.cv.service2
 
-import com.cv.service2.message.MessageQueueSender
+import com.cv.service2.model.response.ObjectDetection
 import com.cv.service2.service.ObjectDetectionService
+import com.cv.service2.service.model.ObjectDetectionResult
+import com.cv.service2.utils.MultipartFileHelper
 import org.slf4j.LoggerFactory
+import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
-import org.springframework.web.bind.annotation.*
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestMethod
+import org.springframework.web.bind.annotation.RequestParam
+import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.multipart.MultipartFile
-import org.springframework.web.servlet.mvc.support.RedirectAttributes
-import java.nio.file.Files
-import java.nio.file.Path
 import java.util.*
 
-
 @RestController
-@RequestMapping(
-    value = ["/cv2"],
-    produces = [MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE],
-    consumes = [MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE]
-)
+@RequestMapping("/cv2")
 class Service2Controller(
-    private val messageQueueSender: MessageQueueSender,
+    private val multipartFileHelper: MultipartFileHelper,
     private val objectDetectionService: ObjectDetectionService
 ) {
 
@@ -32,7 +31,7 @@ class Service2Controller(
         produces = [MediaType.TEXT_PLAIN_VALUE],
         consumes = [MediaType.ALL_VALUE]
     )
-    fun healthcheck(): String {
+    fun healthCheck(): String {
         val message = "healthcheck $uuid"
         logger.info(">> $message")
         return message
@@ -48,65 +47,77 @@ class Service2Controller(
     fun helloworld(): String {
         val message = "helloworld $uuid"
         logger.info(">> $message")
-        messageQueueSender.sendMessage(message)
         return message
     }
 
     @RequestMapping(
         value = ["/object-detection"],
         method = [RequestMethod.POST]
-        )
-    fun objectDetection() {
-        // TODO SFS
-        //  - upload image using postman/curl'
-        //  - receive image
-        //  - save image local
-        //  - upload to S3
-        //  - object detection predict
-        //  - save to persistent storage (for now memory)
-        //     - id, original image s3, output image, timestamp
-        //  - response output image, id
-        //  - verify how long it does take, if it's over 500ms, assycronos approach most take place (NEXT STEP?)
+    )
+    fun objectDetection(
+        @RequestParam(
+            value = "image",
+            required = false
+        ) image: MultipartFile
+    ): ResponseEntity<ObjectDetection> {
+        try {
+            LoggerTime.start("object-detection")
+            val tempLocalFile = multipartFileHelper.saveToLocalStorage(image)
+            val result = objectDetectionService.predict(tempLocalFile)
+            LoggerTime.stop("object-detection")
 
-        val uuid = UUID.randomUUID().toString()
-        val imageName = "elephant-car-scratch.jpg"
-        val folderPath = "src/main/resources/images"
-        val imagePath = "$folderPath/$uuid-$imageName"
-
-        Files.copy(Path.of("$folderPath/$imageName"), Path.of(imagePath))
-
-        logger.info(">>> objectDetection start $uuid")
-        objectDetectionService.predict(imagePath)
-//        messageQueueSender.sendMessage(message)
-        logger.info(">>> objectDetection end $uuid")
+            return when (result) {
+                is ObjectDetectionResult.Success ->
+                    ResponseEntity
+                        .ok()
+                        .body(ObjectDetection.Success(result.id, result.message))
+                is ObjectDetectionResult.Error ->
+                    ResponseEntity
+                        .ok()
+                        .body(ObjectDetection.Error(result.message))
+            }
+        } catch (e: Exception) {
+            logger.error("Failure", e)
+            ResponseEntity
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ObjectDetection.Error(e.message ?: "error"))
+        }
+        return ResponseEntity
+            .status(HttpStatus.INTERNAL_SERVER_ERROR)
+            .body(ObjectDetection.Error("Error"))
     }
 
-
-    @GetMapping("/files/{filename:.+}")
-    @ResponseBody
-    fun serveFile(@PathVariable filename: String?): ResponseEntity<Resource?>? {
-        val file: Resource = storageService.loadAsResource(filename)
-        return ResponseEntity.ok()
-            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + file.getFilename().toString() + "\"")
-            .body<Resource?>(file)
+    /**
+     * This method it's used just for testing using Apache AB
+     */
+    @RequestMapping(
+        value = ["/object-detection/base64"],
+        method = [RequestMethod.POST]
+    )
+    fun objectDetectionBase64(
+        @RequestParam(
+            value = "image",
+            required = false
+        ) image: MultipartFile
+    ): ResponseEntity<ObjectDetection> {
+        try {
+            LoggerTime.start("object-detection")
+            val tempLocalFile = multipartFileHelper.saveToLocalStorageBase64(image)
+            objectDetectionService.predict(tempLocalFile)
+            LoggerTime.stop("object-detection")
+        } catch (e: Exception) {
+            logger.error("Failure", e)
+            ResponseEntity
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ObjectDetection.Error(e.message ?: "error"))
+        }
+        return ResponseEntity
+            .ok()
+            .body(
+                ObjectDetection.Success(
+                    id = UUID.randomUUID().toString(), // TODO SFS
+                    message = "Image uploaded with success"
+                )
+            )
     }
-
-    @PostMapping("/")
-    fun handleFileUpload(
-        @RequestParam("file") file: MultipartFile,
-        redirectAttributes: RedirectAttributes
-    ): String? {
-        storageService.store(file)
-        redirectAttributes.addFlashAttribute(
-            "message",
-            "You successfully uploaded " + file.originalFilename + "!"
-        )
-        return "redirect:/"
-    }
-
-    @ExceptionHandler(StorageFileNotFoundException::class)
-    fun handleStorageFileNotFound(exc: StorageFileNotFoundException?): ResponseEntity<*>? {
-        return ResponseEntity.notFound().build<Any>()
-    }
-
 }

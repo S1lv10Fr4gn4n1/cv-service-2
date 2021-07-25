@@ -9,6 +9,11 @@ spring:
     username: ${RABBITMQ_USER:guest}
     password: ${RABBITMQ_PASS:guest}
 
+    servlet:
+      multipart:
+        max-file-size: 128KB
+        max-request-size: 128KB
+
 logging:
   level:
     org: INFO
